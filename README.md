@@ -1,25 +1,57 @@
-# CNN classification of MNIST dataset using pyTorch
+# CNN Classification of MNIST using PyTorch
 
+A minimal convolutional neural network that classifies handwritten digits (0–9) from the MNIST dataset using PyTorch.
 
-I implemented the Convolutional Neural Networks using pyTorch 
+## What It Does
 
-Convolutional Neural Networks (CNNs / ConvNets)
-Convolutional Neural Networks are very similar to ordinary Neural Networks from the previous chapter: they are made up of neurons that have learnable weights and biases. Each neuron receives some inputs, performs a dot product and optionally follows it with a non-linearity. The whole network still expresses a single differentiable score function: from the raw image pixels on one end to class scores at the other. And they still have a loss function (e.g. SVM/Softmax) on the last (fully-connected) layer and all the tips/tricks we developed for learning regular Neural Networks still apply.
+Trains a two-layer CNN on the 60 000-image MNIST training set and evaluates accuracy on the 10 000-image test set. Logs loss and accuracy every 500 iterations. Supports CUDA if available.
 
-So what does change? ConvNet architectures make the explicit assumption that the inputs are images, which allows us to encode certain properties into the architecture. These then make the forward function more efficient to implement and vastly reduce the amount of parameters in the network.
+## Architecture
 
+```
+Input (1×28×28)
+  → Conv2d(1→16, 5×5) → ReLU → MaxPool2d(2×2)    # output: 16×12×12
+  → Conv2d(16→32, 5×5) → ReLU → MaxPool2d(2×2)    # output: 32×4×4
+  → Flatten (512)
+  → Linear(512→10)
+  → Output (10 classes)
+```
 
-Architecture Overview
-Recall: Regular Neural Nets. As we saw in the previous chapter, Neural Networks receive an input (a single vector), and transform it through a series of hidden layers. Each hidden layer is made up of a set of neurons, where each neuron is fully connected to all neurons in the previous layer, and where neurons in a single layer function completely independently and do not share any connections. The last fully-connected layer is called the “output layer” and in classification settings it represents the class scores.
+| Hyperparameter | Value |
+|---|---|
+| Batch size | 100 |
+| Iterations | 3 000 |
+| Epochs | 5 |
+| Learning rate | 0.01 |
+| Optimizer | SGD |
+| Loss | CrossEntropyLoss |
 
-Regular Neural Nets don’t scale well to full images. In CIFAR-10, images are only of size 32x32x3 (32 wide, 32 high, 3 color channels), so a single fully-connected neuron in a first hidden layer of a regular Neural Network would have 32*32*3 = 3072 weights. This amount still seems manageable, but clearly this fully-connected structure does not scale to larger images. For example, an image of more respectable size, e.g. 200x200x3, would lead to neurons that have 200*200*3 = 120,000 weights. Moreover, we would almost certainly want to have several such neurons, so the parameters would add up quickly! Clearly, this full connectivity is wasteful and the huge number of parameters would quickly lead to overfitting.
+## Dependencies
 
-3D volumes of neurons. Convolutional Neural Networks take advantage of the fact that the input consists of images and they constrain the architecture in a more sensible way. In particular, unlike a regular Neural Network, the layers of a ConvNet have neurons arranged in 3 dimensions: width, height, depth. (Note that the word depth here refers to the third dimension of an activation volume, not to the depth of a full Neural Network, which can refer to the total number of layers in a network.) For example, the input images in CIFAR-10 are an input volume of activations, and the volume has dimensions 32x32x3 (width, height, depth respectively). As we will soon see, the neurons in a layer will only be connected to a small region of the layer before it, instead of all of the neurons in a fully-connected manner. Moreover, the final output layer would for CIFAR-10 have dimensions 1x1x10, because by the end of the ConvNet architecture we will reduce the full image into a single vector of class scores, arranged along the depth dimension.
+- Python 3.x
+- PyTorch
+- torchvision
 
-Rsults: 
+```bash
+pip install torch torchvision
+```
 
+## Usage
 
+```bash
+python cnn.py
+```
 
+MNIST data is downloaded automatically to `./data/` on first run.
 
-![down](https://image.ibb.co/n6RGsn/Screen_Shot_2018_03_09_at_3_00_52_PM.png)
+## Known Bugs & Deprecations
 
+1. **`torch.autograd.Variable` is deprecated.** Since PyTorch 0.4+, tensors track gradients natively. All `Variable(...)` wrapping is unnecessary and should be removed.
+
+2. **`loss.data[0]` crashes on modern PyTorch.** Zero-dimensional tensors no longer support indexing. Replace with `loss.item()`.
+
+3. **Comment says reshape size is `(100, 32, 7, 7)` — it's actually `(batch, 32, 4, 4)`.** After two 5×5 convolutions (no padding) and two 2×2 max-pools on a 28×28 input, the spatial dimensions are 4×4, not 7×7. The `view` call and the `Linear` layer use the correct value (512); only the comment is wrong.
+
+## License
+
+MIT
