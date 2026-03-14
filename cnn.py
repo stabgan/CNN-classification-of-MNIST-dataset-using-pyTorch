@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 import torchvision.datasets as dsets
+from torch.autograd import Variable
 
 '''
 STEP 1: LOADING DATASET
@@ -73,8 +74,9 @@ class CNNModel(nn.Module):
         out = self.maxpool2(out)
         
         # Resize
-        # Original size: (batch, 32, 4, 4)
-        # New out size: (batch, 32*4*4) = (batch, 512)
+        # Original size: (100, 32, 7, 7)
+        # out.size(0): 100
+        # New out size: (100, 32*7*7)
         out = out.view(out.size(0), -1)
 
         # Linear function (readout)
@@ -113,15 +115,17 @@ STEP 7: TRAIN THE MODEL
 '''
 iter = 0
 for epoch in range(num_epochs):
-    model.train()
     for i, (images, labels) in enumerate(train_loader):
         
         #######################
         #  USE GPU FOR MODEL  #
         #######################
         if torch.cuda.is_available():
-            images = images.cuda()
-            labels = labels.cuda()
+            images = Variable(images.cuda())
+            labels = Variable(labels.cuda())
+        else:
+            images = Variable(images)
+            labels = Variable(labels)
         
         # Clear gradients w.r.t. parameters
         optimizer.zero_grad()
@@ -144,36 +148,35 @@ for epoch in range(num_epochs):
             # Calculate Accuracy         
             correct = 0
             total = 0
-
-            model.eval()
-            with torch.no_grad():
-                # Iterate through test dataset
-                for images, labels in test_loader:
-                    #######################
-                    #  USE GPU FOR MODEL  #
-                    #######################
-                    if torch.cuda.is_available():
-                        images = images.cuda()
-                    
-                    # Forward pass only to get logits/output
-                    outputs = model(images)
-                    
-                    # Get predictions from the maximum value
-                    _, predicted = torch.max(outputs.data, 1)
-                    
-                    # Total number of labels
-                    total += labels.size(0)
-                    
-                    #######################
-                    #  USE GPU FOR MODEL  #
-                    #######################
-                    # Total correct predictions
-                    if torch.cuda.is_available():
-                        correct += (predicted.cpu() == labels.cpu()).sum()
-                    else:
-                        correct += (predicted == labels).sum()
+            # Iterate through test dataset
+            for images, labels in test_loader:
+                #######################
+                #  USE GPU FOR MODEL  #
+                #######################
+                if torch.cuda.is_available():
+                    images = Variable(images.cuda())
+                else:
+                    images = Variable(images)
+                
+                # Forward pass only to get logits/output
+                outputs = model(images)
+                
+                # Get predictions from the maximum value
+                _, predicted = torch.max(outputs.data, 1)
+                
+                # Total number of labels
+                total += labels.size(0)
+                
+                #######################
+                #  USE GPU FOR MODEL  #
+                #######################
+                # Total correct predictions
+                if torch.cuda.is_available():
+                    correct += (predicted.cpu() == labels.cpu()).sum()
+                else:
+                    correct += (predicted == labels).sum()
             
-            accuracy = 100. * correct.item() / total
+            accuracy = 100 * correct / total
             
             # Print Loss
-            print('Iteration: {}. Loss: {}. Accuracy: {}'.format(iter, loss.item(), accuracy))
+            print('Iteration: {}. Loss: {}. Accuracy: {}'.format(iter, loss.data[0], accuracy))
